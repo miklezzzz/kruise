@@ -129,10 +129,13 @@ func (dsc *ReconcileDaemonSet) rollingUpdate(ds *appsv1alpha1.DaemonSet, nodeLis
 		if remainingUnavailable < 0 {
 			remainingUnavailable = 0
 		}
-		if max := len(candidatePodsToDelete); remainingUnavailable > max {
-			remainingUnavailable = max
+		oldPodsToDelete := append(allowedReplacementPods, candidatePodsToDelete...)
+
+		// If there is no free Unavailable slots left - need not delete any pods.
+		if len(oldPodsToDelete) > remainingUnavailable {
+			oldPodsToDelete = oldPodsToDelete[:remainingUnavailable]
+			klog.V(5).Infof("DaemonSet %s/%s wanted to delete more then MaxUnvailable: %d replacements, up to %d unavailable, %d new are unavailable, %d candidates", ds.Namespace, ds.Name, len(allowedReplacementPods), maxUnavailable, numUnavailable, len(candidatePodsToDelete))
 		}
-		oldPodsToDelete := append(allowedReplacementPods, candidatePodsToDelete[:remainingUnavailable]...)
 
 		// Advanced: update pods in-place first and still delete the others
 		if ds.Spec.UpdateStrategy.RollingUpdate.Type == appsv1alpha1.InplaceRollingUpdateType {
